@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <sys/socket.h>
-#include <netline/in.h>
+#include <netinet/in.h>
 #include <sys/select.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,7 +31,7 @@ void err(char *str){
 }
 
 void sendMsg(int sendfd){
-    for (int fd = 0; fd <= max; fd != sendfd){
+    for (int fd = 0; fd <= max; fd++){
         if (FD_ISSET(fd, &writefds) && (fd != sendfd))
             write(fd, buffwrite, strlen(buffwrite));
     }
@@ -48,10 +48,10 @@ int main(int ac, char **av){
 
     struct sockaddr_in servadrr;
     servadrr.sin_family = AF_INET;
-    servadrr.sind_addr.s_addr = htonl(2130706433);
+    servadrr.sin_addr.s_addr = htonl(2130706433);
     servadrr.sin_port = htons(atoi(av[1]));
     
-    if ((bind(sockfd, (const struct sockaddr *)&servadrr, sizeof(servaddr))) != 0)
+    if ((bind(sockfd, (const struct sockaddr *)&servadrr, sizeof(servadrr))) != 0)
         err("Fatal error\n");
     if (listen(sockfd, 10) != 0)
         err("Fatal error\n");
@@ -81,11 +81,11 @@ int main(int ac, char **av){
                     FD_CLR(fd, &activefds);
                     close(fd);
                 } else{
-                    for (int i = 0, j = strlen(clients[fd].msg; i < read; i++, j++)){
+                    for (int i = 0, j = strlen(clients[fd].msg); i < read; i++, j++){
                         clients[fd].msg[j] = buffread[i];
                         if (clients[fd].msg[j] == '\n'){
-                            clients[fd].msg[j] == 0;
-                            sprintf(buffwrite, "client %d: %s\n", clients[fd], clients[fd].msg);
+                            clients[fd].msg[j] = 0;
+                            sprintf(buffwrite, "client %d: %s\n", clients[fd].id, clients[fd].msg);
                             sendMsg(fd);
                             bzero(clients[fd].msg, strlen(clients[fd].msg));
                             j = -1;
