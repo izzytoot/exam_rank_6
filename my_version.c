@@ -15,9 +15,9 @@ typedef struct s_client{
 } t_client;
 
 t_client clients[2048];
-fd_set writefds, readfds, activefds;
 int max_fd = 0, next_id = 0;
-char buff_write[120000], buff_read[120000];
+fd_set writefds, readfds, activefds;
+char buffwrite[120000], buffread[120000];
 
 void err(char *str){
 	write(2, str, strlen(str));
@@ -31,67 +31,67 @@ void broadcast(int sender_fd, char *str){
 	}
 }
 
-int main(int ac, char **av){
+int main (int ac, char **av){
 	if (ac != 2)
 		err("Wrong number of arguments\n");
 	
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	if (sockfd == -1)
-		err("Fatal error\n");
+	if (sockfd < 0)
+		err("Fatatl error\n");
 	max_fd = sockfd;
 
 	FD_ZERO(&activefds);
 	FD_SET(sockfd, &activefds);
 
 	struct sockaddr_in servaddr;
-	socklen_t addr_len = sizeof(servaddr);
+	socklen_t servaddr_len = sizeof(servaddr);
 	servaddr.sin_family = AF_INET; 
 	servaddr.sin_addr.s_addr = htonl(2130706433); //127.0.0.1
-	servaddr.sin_port = htons(atoi(av[1])); 
+	servaddr.sin_port = htons(atoi(av[1]));
 
-	if((bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr))) != 0)
+	if ((bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr))) != 0)
 		err("Fatal error\n");
-	
-	if(listen(sockfd, 128) != 0)
-		err("Fatal error \n");
 
-	while(1){
+	if (listen(sockfd, 128) != 0)
+		err("Fatal error\n");
+
+	while(1) {
 		readfds = writefds = activefds;
 
-		if(select(max_fd + 1, &readfds, &writefds, NULL, NULL) < 0)
+		if (select(max_fd + 1, &readfds, &writefds, NULL, NULL) < 0)
 			continue;
 		
-		for(int fd = 0; fd <= max_fd; fd++){
+		for (int fd = 0; fd <= max_fd; fd++){
 			if (!FD_ISSET(fd, &readfds))
 				continue;
 			
 			if (fd == sockfd) {
-				int connectfd = accept(sockfd, (struct sockaddr *)&servaddr, &addr_len);
+				int connectfd = accept(sockfd, (struct sockaddr *)&servaddr, &servaddr_len);
 				if (connectfd < 0)
 					continue;
-				if(connectfd > max_fd)
-					max_fd = connectfd;
+
+				max_fd = (connectfd > max_fd) ? connectfd : max_fd;
 				clients[connectfd].id = next_id++;
 				memset(clients[connectfd].msg, 0, sizeof(clients[connectfd].msg));
 				FD_SET(connectfd, &activefds);
-				sprintf(buff_write, "server: client %d just arrived\n", clients[connectfd].id);
-				broadcast(connectfd, buff_write);
+				sprintf(buffwrite, "server: client %d just arrived\n", clients[connectfd].id);
+				broadcast(connectfd, buffwrite);
 			} else {
-				int n = recv(fd, buff_read, 100000, 0);
-				if (n <= 0){
-					sprintf(buff_write, "server: client %d just left\n", clients[fd].id);
-					broadcast(fd, buff_write);
+				int n = recv(fd, buffread, 100000, 0);
+				if (n <= 0) {
+					sprintf(buffwrite, "server: client %d just left\n", clients[fd].id);
+					broadcast(fd, buffwrite);
 					FD_CLR(fd, &activefds);
 					close(fd);
 				} else {
 					for (int i = 0, j = strlen(clients[fd].msg); i < n; i++, j++) {
-					clients[fd].msg[j] = buff_read[i];
-					if (clients[fd].msg[j] == '\n'){
-						clients[fd].msg[j] = '\0';
-						sprintf(buff_write, "client %d: %s\n", clients[fd].id, clients[fd].msg);
-						broadcast(fd, buff_write);
-						memset(clients[fd].msg, 0, sizeof(clients[fd].msg));
-						j = -1;
+						clients[fd].msg[j] = buffread[i];
+						if (clients[fd].msg[j] == '\n'){
+							clients[fd].msg[j] = '\0';
+							sprintf(buffwrite, "client %d: %s\n", clients[fd].id, clients[fd].msg);
+							broadcast(fd, buffwrite);
+							memset(clients[fd].msg, 0, sizeof(clients[fd].msg));
+							j = -1;
 						}
 					}
 				}
@@ -100,4 +100,3 @@ int main(int ac, char **av){
 	}
 	return 0;
 }
-
